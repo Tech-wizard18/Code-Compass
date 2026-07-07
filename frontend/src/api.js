@@ -19,6 +19,17 @@ async function request(endpoint, options = {}) {
     headers,
   })
 
+  // If the token was rejected by the backend (expired, tampered, or invalid),
+  // clear the session and send the user back to login
+  if (response.status === 401 || response.status === 403) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('username')
+    localStorage.removeItem('activeRepoUrl')
+    localStorage.removeItem('activeConversationId')
+    window.location.href = '/login'
+    throw new Error('Session expired. Please log in again.')
+  }
+
   // Try to parse JSON either way (error responses often have a message body too)
   let data = null
   try {
@@ -73,4 +84,10 @@ export function getConversations() {
 
 export function getConversationMessages(id) {
   return request(`/api/conversations/${id}/messages`)
+}
+
+export function deleteConversation(id) {
+  return request(`/api/conversations/${id}`, {
+    method: 'DELETE',
+  })
 }

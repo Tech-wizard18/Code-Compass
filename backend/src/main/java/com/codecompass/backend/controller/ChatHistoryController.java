@@ -8,11 +8,14 @@ import com.codecompass.backend.repository.ConversationRepository;
 import com.codecompass.backend.repository.MessageRepository;
 import com.codecompass.backend.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class ChatHistoryController {
@@ -58,5 +61,25 @@ public class ChatHistoryController {
                 .stream()
                 .map(m -> new MessageDto(m.getId(), m.getRole(), m.getContent(), m.getCitations(), m.getCreatedAt()))
                 .toList();
+    }
+
+    @Transactional
+    @DeleteMapping("/api/conversations/{id}")
+    public Map<String, String> deleteConversation(@PathVariable Long id) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ConversationEntity conversation = conversationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        if (!conversation.getUserId().equals(user.getId())) {
+            throw new RuntimeException("Not authorized to access this conversation");
+        }
+
+        messageRepository.deleteByConversationId(id);
+        conversationRepository.delete(conversation);
+
+        return Map.of("message", "Conversation deleted successfully.");
     }
 }

@@ -5,8 +5,6 @@ import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 
 function cleanAnswerText(text) {
-  // Matches any Windows-style path ending in codecompass-repo-<numbers>\...\something.java
-  // and replaces it with just the part from src/ onward
   return text.replace(
     /[A-Za-z]:\\[^`\s]*?codecompass-repo-\d+\\(.+?)(?=[`\s]|$)/g,
     (match, afterRepoId) => afterRepoId.replace(/\\/g, '/')
@@ -79,6 +77,7 @@ function Chat() {
   const [conversationId, setConversationId] = useState(null)
   const [sending, setSending] = useState(false)
   const [restoring, setRestoring] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const lastUserMsgRef = useRef(null)
 
@@ -86,7 +85,6 @@ function Chat() {
     lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [messages])
 
-  // On first load, check if we have a saved conversation to restore
   useEffect(() => {
     const savedRepoUrl = localStorage.getItem('activeRepoUrl')
     const savedConversationId = localStorage.getItem('activeConversationId')
@@ -105,7 +103,6 @@ function Chat() {
           setRepoUrl(savedRepoUrl)
         })
         .catch(() => {
-          // saved conversation no longer valid, clear it
           localStorage.removeItem('activeRepoUrl')
           localStorage.removeItem('activeConversationId')
         })
@@ -183,6 +180,12 @@ function Chat() {
     localStorage.removeItem('activeConversationId')
   }
 
+  const handleActiveConversationDeleted = () => {
+    setMessages([])
+    setConversationId(null)
+    localStorage.removeItem('activeConversationId')
+  }
+
   const handleIndexAnotherRepo = () => {
     setRepoUrl('')
     setMessages([])
@@ -206,11 +209,14 @@ function Chat() {
   if (!repoUrl) {
     return (
       <div className="h-screen flex flex-col bg-stone-50">
-        <Navbar />
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar
             onSelectConversation={handleSelectConversation}
             activeConversationId={conversationId}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            onActiveConversationDeleted={handleActiveConversationDeleted}
           />
           <div className="flex-1 flex items-center justify-center px-4">
             <div className="w-full max-w-md bg-white border border-stone-200 rounded-2xl shadow-sm p-8">
@@ -247,13 +253,16 @@ function Chat() {
 
   return (
     <div className="h-screen flex flex-col bg-stone-50">
-      <Navbar />
+      <Navbar onMenuClick={() => setSidebarOpen(true)} />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
           onSelectConversation={handleSelectConversation}
           activeConversationId={conversationId}
           onNewChat={handleNewChat}
           onIndexAnotherRepo={handleIndexAnotherRepo}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onActiveConversationDeleted={handleActiveConversationDeleted}
         />
         <div className="flex-1 flex flex-col">
           {/* Messages area */}

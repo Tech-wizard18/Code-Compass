@@ -1,5 +1,6 @@
 package com.codecompass.backend.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -11,39 +12,37 @@ import java.util.Map;
 @Service
 public class EmbeddingService {
 
-    // nomic-embed-text: ~8192 tokens, ~3 chars/token for code = ~24000 chars
-    // We use slightly less to be safe
+    // Gemini embedding model supports up to 8192 tokens (~4 chars/token for code = ~30000 chars)
+    // We use a conservative chunk size to be safe
     private static final int CHUNK_SIZE = 2000;
 
     // Overlap between consecutive pieces — preserves context at boundaries
     private static final int OVERLAP = 200;
 
     private final RestClient restClient;
+    private final String apiKey;
 
-    public EmbeddingService() {
+    public EmbeddingService(@Value("${gemini.api.key}") String apiKey) {
+        this.apiKey = apiKey;
         this.restClient = RestClient.builder()
-                .baseUrl("http://localhost:11434")
+                .baseUrl("https://generativelanguage.googleapis.com")
                 .build();
     }
 
     public List<Double> embed(String text) {
-        // If text fits within limit — embed directly, single call
         System.out.println("DEBUG: text length = " + text.length() + ", CHUNK_SIZE = " + CHUNK_SIZE);
         if (text.length() <= CHUNK_SIZE) {
-            return callOllama(text);
+            return callGemini(text);
         }
 
-        // Text is too big — split into overlapping pieces,
-        // embed each piece, average the vectors together
         List<String> pieces = splitWithOverlap(text);
         List<List<Double>> allVectors = new ArrayList<>();
 
         for (String piece : pieces) {
-            List<Double> vector = callOllama(piece);
+            List<Double> vector = callGemini(piece);
             allVectors.add(vector);
         }
 
-        // Average all piece vectors into one final vector
         return averageVectors(allVectors);
     }
 
@@ -75,21 +74,27 @@ public class EmbeddingService {
         return averaged;
     }
 
-    private List<Double> callOllama(String text) {
+    private List<Double> callGemini(String text) {
         Map<String, Object> requestBody = Map.of(
-                "model", "nomic-embed-text",
-                "prompt", text
+                "content", Map.of(
+                        "parts", List.of(
+                                Map.of("text", text)
+                        )
+                ),
+                "outputDimensionality", 768
         );
 
-        OllamaResponse response = restClient.post()
-                .uri("/api/embeddings")
+        GeminiEmbedResponse response = restClient.post()
+                .uri("/v1beta/models/gemini-embedding-001:embedContent")
                 .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
                 .body(requestBody)
                 .retrieve()
-                .body(OllamaResponse.class);
+                .body(GeminiEmbedResponse.class);
 
-        return response.embedding();
+        return response.embedding().values();
     }
 
-    record OllamaResponse(@JsonProperty("embedding") List<Double> embedding) {}
+    record GeminiEmbedResponse(@JsonProperty("embedding") Embedding embedding) {}
+    record Embedding(@JsonProperty("values") List<Double> values) {}
 }
