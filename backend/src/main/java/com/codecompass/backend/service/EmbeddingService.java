@@ -12,11 +12,7 @@ import java.util.Map;
 @Service
 public class EmbeddingService {
 
-    // Gemini embedding model supports up to 8192 tokens (~4 chars/token for code = ~30000 chars)
-    // We use a conservative chunk size to be safe
     private static final int CHUNK_SIZE = 2000;
-
-    // Overlap between consecutive pieces — preserves context at boundaries
     private static final int OVERLAP = 200;
 
     private final RestClient restClient;

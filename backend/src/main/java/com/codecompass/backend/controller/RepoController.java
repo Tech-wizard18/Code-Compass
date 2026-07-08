@@ -115,12 +115,10 @@ public class RepoController {
 
     @PostMapping("/api/chat")
     public ChatResponse chat(@RequestBody ChatRequest request) {
-        // Step 1: who is asking? comes from the verified JWT, never from the request body
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Step 2: get or create the conversation
         ConversationEntity conversation;
         if (request.getConversationId() == null) {
             conversation = new ConversationEntity(user.getId(), request.getRepoUrl(), request.getQuestion());
@@ -134,15 +132,12 @@ public class RepoController {
             }
         }
 
-        // Step 3: reuse the exact same retrieval logic as /api/search
         List<ChunkSearchResult> chunks = retrievalService.findRelevantChunks(
                 request.getRepoUrl(),
                 request.getQuestion(),
                 5
         );
 
-        // Step 4: build the prompt — stuff the actual code into the text
-        // we send to llama3, so it answers from real code, not guesses
         StringBuilder promptBuilder = new StringBuilder();
         promptBuilder.append("You are a helpful code assistant. A student is exploring a GitHub repository ")
                 .append("and has asked a question about the codebase.\n\n")
@@ -161,10 +156,8 @@ public class RepoController {
                 .append("Answer based on the code above. Be specific, reference actual method names ")
                 .append("and files, explain clearly for a student who is learning.");
 
-        // Step 5: send the prompt to llama3, get the plain text answer back
         String answer = llmService.generateAnswer(promptBuilder.toString());
 
-        // Step 6: build the trimmed-down citation list for the frontend
         List<ChatResponse.Citation> citations = chunks.stream()
                 .map(chunk -> new ChatResponse.Citation(
                         chunk.getFilePath(),
@@ -174,12 +167,10 @@ public class RepoController {
                 ))
                 .toList();
 
-        // Step 7: save both messages to the database
         String citationsJson = citationsToJson(citations);
         messageRepository.save(new MessageEntity(conversation.getId(), "user", request.getQuestion(), null));
         messageRepository.save(new MessageEntity(conversation.getId(), "assistant", answer, citationsJson));
 
-        // Step 8: return the answer, citations, and which conversation this belongs to
         return new ChatResponse(answer, citations, conversation.getId());
     }
 
