@@ -36,4 +36,6 @@ public class ConversationEntity {
     public String getRepoUrl() { return repoUrl; }
     public String getTitle() { return title; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public void setTitle(String title) { this.title = title; }
 }

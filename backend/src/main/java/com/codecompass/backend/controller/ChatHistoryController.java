@@ -11,7 +11,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -61,6 +63,33 @@ public class ChatHistoryController {
                 .stream()
                 .map(m -> new MessageDto(m.getId(), m.getRole(), m.getContent(), m.getCitations(), m.getCreatedAt()))
                 .toList();
+    }
+
+    @Transactional
+    @PatchMapping("/api/conversations/{id}")
+    public Map<String, String> renameConversation(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        System.out.println("Reached renameConversation, title=" + body.get("title"));
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ConversationEntity conversation = conversationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        if (!conversation.getUserId().equals(user.getId())) {
+            throw new RuntimeException("Not authorized to access this conversation");
+        }
+
+        String newTitle = body.get("title");
+        if (newTitle == null || newTitle.isBlank()) {
+            throw new RuntimeException("Title cannot be empty");
+        }
+
+        conversation.setTitle(newTitle.trim());
+        conversationRepository.save(conversation);
+
+        return Map.of("message", "Conversation renamed successfully.");
     }
 
     @Transactional
