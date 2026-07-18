@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
-import { getConversations, deleteConversation } from '../api'
+import { useState, useEffect, useRef } from 'react'
+import { getConversations, deleteConversation, renameConversation } from '../api'
 import { toast } from 'react-hot-toast'
 
 function Sidebar({ onSelectConversation, activeConversationId, onNewChat, onIndexAnotherRepo, isOpen, onClose, onActiveConversationDeleted }) {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
   const [conversationToDelete, setConversationToDelete] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editTitle, setEditTitle] = useState('')
+  const cancellingRef = useRef(false)
 
   useEffect(() => {
     getConversations()
@@ -15,6 +18,7 @@ function Sidebar({ onSelectConversation, activeConversationId, onNewChat, onInde
   }, [])
 
   const handleSelect = (conv) => {
+    if (editingId === conv.id) return
     onSelectConversation(conv)
     if (onClose) onClose()
   }
@@ -39,6 +43,51 @@ function Sidebar({ onSelectConversation, activeConversationId, onNewChat, onInde
     } catch (err) {
       toast.error(err.message)
     }
+  }
+
+  const handleRenameClick = (e, conv) => {
+    e.stopPropagation()
+    setEditingId(conv.id)
+    setEditTitle(conv.title)
+  }
+
+  const saveRename = async (conv) => {
+    const trimmed = editTitle.trim()
+
+    if (!trimmed || trimmed === conv.title) {
+      setEditingId(null)
+      return
+    }
+
+    try {
+      await renameConversation(conv.id, trimmed)
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conv.id ? { ...c, title: trimmed } : c))
+      )
+      toast.success('Conversation renamed')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setEditingId(null)
+    }
+  }
+
+  const handleTitleKeyDown = (e, conv) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      saveRename(conv)
+    } else if (e.key === 'Escape') {
+      cancellingRef.current = true
+      setEditingId(null)
+    }
+  }
+
+  const handleTitleBlur = (conv) => {
+    if (cancellingRef.current) {
+      cancellingRef.current = false
+      return
+    }
+    saveRename(conv)
   }
 
   return (
@@ -102,17 +151,45 @@ function Sidebar({ onSelectConversation, activeConversationId, onNewChat, onInde
                     : 'hover:bg-stone-100'
                 }`}
               >
-                <p className="text-sm text-stone-800 truncate flex-1">{conv.title}</p>
-                <button
-                  onClick={(e) => handleDeleteClick(e, conv)}
-                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-stone-400 hover:text-red-600 transition ml-2 flex-shrink-0"
-                  aria-label="Delete conversation"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </button>
+                {editingId === conv.id ? (
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => handleTitleKeyDown(e, conv)}
+                    onBlur={() => handleTitleBlur(conv)}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="text-sm text-stone-800 flex-1 bg-white border border-indigo-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-400"
+                  />
+                ) : (
+                  <p className="text-sm text-stone-800 truncate flex-1">{conv.title}</p>
+                )}
+
+                {editingId !== conv.id && (
+                  <div className="flex items-center flex-shrink-0">
+                    <button
+                      onClick={(e) => handleRenameClick(e, conv)}
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-stone-400 hover:text-indigo-600 transition ml-2"
+                      aria-label="Rename conversation"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteClick(e, conv)}
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-stone-400 hover:text-red-600 transition ml-2"
+                      aria-label="Delete conversation"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
         </div>

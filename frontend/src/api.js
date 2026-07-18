@@ -91,3 +91,9 @@ export function deleteConversation(id) {
     method: 'DELETE',
   })
 }
+export function renameConversation(id, title) {
+  return request(`/api/conversations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+}
