@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL
+const BASE_URL = ''
 
 // Core request function — every API call goes through this
 async function request(endpoint, options = {}) {
