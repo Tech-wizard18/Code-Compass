@@ -8,7 +8,6 @@ frontend/dist/
 
 # Environment files
 frontend/.env
-backend/src/main/resources/application.properties
 
 # OS/editor junk
 .idea/
