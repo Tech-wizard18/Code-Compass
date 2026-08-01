@@ -4,6 +4,9 @@ CodeCompass is an AI-powered learning companion that lets you explore any public
 
 Think of it as ChatGPT/Claude, but scoped to a specific codebase you choose.
 
+**🔴 Live demo:** [code-compass-5r07.onrender.com](https://code-compass-5r07.onrender.com)
+*(hosted on a free tier — the first request after a period of inactivity can take 30–60 seconds to wake up)*
+
 ## Why CodeCompass?
 
 - **Grounded, not hallucinated** — every answer is backed by a RAG (Retrieval-Augmented Generation) pipeline that retrieves real code chunks before generating a response.
@@ -26,6 +29,11 @@ Think of it as ChatGPT/Claude, but scoped to a specific codebase you choose.
 - React Router
 - react-hot-toast
 
+**Deployment**
+- [Neon](https://neon.tech) — serverless Postgres 16 with pgvector, free tier
+- [Render](https://render.com) — Docker-based web service, free tier
+- Frontend build is bundled directly into the Spring Boot jar as static resources, so the whole app (API + UI) is served from a single origin — no separate frontend host, no CORS to manage in production
+
 ## How It Works
 
 1. **Index a repo** — paste a public GitHub URL. The backend clones it, filters out sensitive files, chunks the code at class/method level using AST parsing, embeds each chunk, and stores it in Postgres with pgvector.
@@ -37,7 +45,7 @@ Think of it as ChatGPT/Claude, but scoped to a specific codebase you choose.
 - 🔍 Index any public GitHub repository, with automatic re-indexing on repeat submissions
 - 💬 Natural language Q&A grounded in real code, with expandable file/line citations
 - 🔐 JWT authentication — register/login with username or email, with automatic session expiry handling
-- 🗂️ Persistent, multi-turn conversations per repo — browse, resume, or delete past conversations from a sidebar
+- 🗂️ Persistent, multi-turn conversations per repo — browse, resume, rename, or delete past conversations from a sidebar
 - 📱 Fully responsive — works on desktop and mobile, with a collapsible slide-over sidebar on smaller screens
 - 🎨 Clean, modern chat interface inspired by Claude's UI
 
@@ -58,25 +66,36 @@ Code-Compass/
 - A free [Google Gemini API key](https://aistudio.google.com/) (no credit card required)
 
 ### Backend
+
+`application.properties` reads its config from environment variables rather than hardcoded values, so it works the same way locally and in production. Set these before running (e.g. in your IDE's Run Configuration, or a local `.env`/export):
+
+```
+DB_URL=jdbc:postgresql://localhost:5432/codecompass
+DB_USERNAME=postgres
+DB_PASSWORD=<your local postgres password>
+JWT_SECRET=<any random string, 32+ characters>
+GEMINI_API_KEY=<your Gemini API key>
+```
+
+Then:
 ```bash
 cd backend
-# configure src/main/resources/application.properties with your DB credentials
-# and add: gemini.api.key=<your key>
 mvn spring-boot:run
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The frontend expects the backend running at `http://localhost:8080` (configurable via `frontend/.env`).
+> **Note:** in the deployed app, the frontend calls the API using relative paths (`/api/...`) since it's served from the same origin as the backend. For local development with the frontend and backend running on separate ports (`5173` and `8080`), point API calls at `http://localhost:8080` instead — either via a `VITE_API_URL` env var wired back into `src/api.js`, or a Vite dev-server proxy.
 
 ## Status
 
-Actively in development. Core RAG pipeline, authentication, repo indexing, citations, conversation history, and a fully responsive UI are complete and working end-to-end. Upcoming: conversation renaming, nicer error states, and deployment.
+Deployed and working end-to-end: authentication, repo indexing, the full RAG pipeline, cited answers, persistent/renameable conversations, and a responsive UI are all live in production. Next up: a dedicated "re-index" button, nicer inline error states, and rate limiting.
 
 ## Privacy
 
